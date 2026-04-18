@@ -192,6 +192,11 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onClose }) => {
           error: error.message || 'Error processing image'
         } : p));
       }
+      
+      // Delay to avoid hitting rate limits
+      if (i < items.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
     }
 
     setIsProcessing(false);

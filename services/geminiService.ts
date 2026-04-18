@@ -3,6 +3,29 @@ import { Message, Region } from "../types";
 
 // --- HELPERS ---
 
+// Retry wrapper to handle 429 Resource Exhausted gracefully with exponential backoff
+const callGeminiWithRetry = async (aiInstance: GoogleGenAI, config: any, retries = 3): Promise<any> => {
+  let attempt = 0;
+  while (attempt < retries) {
+    try {
+      return await aiInstance.models.generateContent(config);
+    } catch (error: any) {
+      const msg = error?.message || '';
+      // We look for 429, Resource Exhausted, or Quota strings
+      if (msg.includes('429') || msg.includes('Quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+        attempt++;
+        if (attempt >= retries) throw new Error(`Rate limit exceeded after ${retries} attempts. Please slow down and try again.`);
+        // Exponential backoff: 3s, 6s...
+        const delayMs = attempt * 3000;
+        console.warn(`Hit rate limit (429). Retrying in ${delayMs / 1000}s... (Attempt ${attempt}/${retries})`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      } else {
+        throw error;
+      }
+    }
+  }
+};
+
 const loadImage = (src: string): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -276,7 +299,7 @@ export const editImageWithGemini = async (
       // FIX: Append instruction to prevent cutoff
       const refinedPrompt = `${prompt}. Ensure the subject is complete, fully visible, and fits inside the area.`;
 
-      const response = await ai.models.generateContent({
+      const response = await callGeminiWithRetry(ai, {
         model: 'gemini-2.5-flash-image', 
         contents: {
           parts: [
@@ -426,7 +449,7 @@ export const editImageWithGemini = async (
     // This handles 4K uploads by shrinking them to ~200KB payloads instead of 10MB+.
     const optimizedBase64 = await processImageForAI(cleanBase64, 1024, 0.7);
 
-    const response = await ai.models.generateContent({
+    const response = await callGeminiWithRetry(ai, {
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [
