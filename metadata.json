@@ -1,0 +1,6 @@
+{
+  "name": "TubeThumb AI Editor - Polishing",
+  "description": "A chat-based YouTube thumbnail editor powered by Gemini 2.5 Flash Image. Upload an image and iterate with text prompts to create the perfect thumbnail.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
